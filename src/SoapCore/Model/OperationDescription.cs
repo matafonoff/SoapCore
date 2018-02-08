@@ -5,13 +5,6 @@ namespace SoapCore
 {
 	public class OperationDescription
 	{
-		public ContractDescription Contract { get; private set; }
-		public string SoapAction { get; private set; }
-		public string ReplyAction { get; private set; }
-		public string Name { get; private set; }
-		public MethodInfo DispatchMethod { get; private set; }
-		public bool IsOneWay { get; private set; }
-
 		public OperationDescription(ContractDescription contract, MethodInfo operationMethod, OperationContractAttribute contractAttribute)
 		{
 			Contract = contract;
@@ -21,5 +14,12 @@ namespace SoapCore
 			ReplyAction = contractAttribute.ReplyAction;
 			DispatchMethod = operationMethod;
 		}
+
+		public ContractDescription Contract { get; }
+		public string SoapAction { get; }
+		public string ReplyAction { get; }
+		public string Name { get; }
+		public MethodInfo DispatchMethod { get; }
+		public bool IsOneWay { get; }
 	}
 }

@@ -10,14 +10,15 @@ namespace SoapCore
 {
 	public class ServiceBodyWriter : BodyWriter
 	{
+		private readonly string _envelopeName;
+		private readonly Dictionary<string, object> _outResults;
+		private readonly object _result;
+		private readonly string _resultName;
 		private readonly SoapSerializer _serializer;
 		private readonly string _serviceNamespace;
-		private readonly string _envelopeName;
-		private readonly string _resultName;
-		private readonly object _result;
-		private readonly Dictionary<string, object> _outResults;
 
-		public ServiceBodyWriter(SoapSerializer serializer, string serviceNamespace, string envelopeName, string resultName, object result, Dictionary<string, object> outResults) : base(isBuffered: true)
+		public ServiceBodyWriter(SoapSerializer serializer, string serviceNamespace, string envelopeName, string resultName, object result, Dictionary<string, object> outResults)
+			: base(true)
 		{
 			_serializer = serializer;
 			_serviceNamespace = serviceNamespace;
@@ -37,15 +38,25 @@ namespace SoapCore
 				{
 					string value;
 					if (outResult.Value is Guid)
+					{
 						value = outResult.Value.ToString();
+					}
 					else if (outResult.Value is bool)
+					{
 						value = outResult.Value.ToString().ToLower();
+					}
 					else if (outResult.Value is string)
+					{
 						value = SecurityElement.Escape(outResult.Value.ToString());
+					}
 					else if (outResult.Value is Enum)
+					{
 						value = outResult.Value.ToString();
+					}
 					else if (outResult.Value == null)
+					{
 						value = null;
+					}
 					else //for complex types
 					{
 						using (var ms = new MemoryStream())
@@ -62,7 +73,9 @@ namespace SoapCore
 					}
 
 					if (value != null)
+					{
 						writer.WriteRaw(string.Format("<{0}>{1}</{0}>", outResult.Key, value));
+					}
 				}
 			}
 
@@ -71,17 +84,17 @@ namespace SoapCore
 				switch (_serializer)
 				{
 					case SoapSerializer.XmlSerializer:
-						{
-							// see https://referencesource.microsoft.com/System.Xml/System/Xml/Serialization/XmlSerializer.cs.html#c97688a6c07294d5
-							var serializer = new XmlSerializer(_result.GetType(), null, new Type[0], new XmlRootAttribute(_resultName), _serviceNamespace);
-							serializer.Serialize(writer, _result);
-						}
+					{
+						// see https://referencesource.microsoft.com/System.Xml/System/Xml/Serialization/XmlSerializer.cs.html#c97688a6c07294d5
+						var serializer = new XmlSerializer(_result.GetType(), null, new Type[0], new XmlRootAttribute(_resultName), _serviceNamespace);
+						serializer.Serialize(writer, _result);
+					}
 						break;
 					case SoapSerializer.DataContractSerializer:
-						{
-							var serializer = new DataContractSerializer(_result.GetType(), _resultName, _serviceNamespace);
-							serializer.WriteObject(writer, _result);
-						}
+					{
+						var serializer = new DataContractSerializer(_result.GetType(), _resultName, _serviceNamespace);
+						serializer.WriteObject(writer, _result);
+					}
 						break;
 					default: throw new NotImplementedException();
 				}

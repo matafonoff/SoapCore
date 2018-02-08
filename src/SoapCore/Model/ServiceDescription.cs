@@ -8,16 +8,12 @@ namespace SoapCore
 {
 	public class ServiceDescription
 	{
-		public Type ServiceType { get; private set; }
-		public IEnumerable<ContractDescription> Contracts { get; private set; }
-		public IEnumerable<OperationDescription> Operations => Contracts.SelectMany(c => c.Operations);
-
 		public ServiceDescription(Type serviceType)
 		{
 			ServiceType = serviceType;
 
 			var types = Enumerable.Empty<Type>().Concat(ServiceType.GetInterfaces());
-			types = types.Concat(new[] { ServiceType });
+			types = types.Concat(new[] {ServiceType});
 
 			var contracts = new List<ContractDescription>();
 			foreach (var contractType in types)
@@ -30,5 +26,9 @@ namespace SoapCore
 
 			Contracts = contracts;
 		}
+
+		public Type ServiceType { get; }
+		public IEnumerable<ContractDescription> Contracts { get; }
+		public IEnumerable<OperationDescription> Operations => Contracts.SelectMany(c => c.Operations);
 	}
 }

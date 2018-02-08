@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Threading.Tasks;
 using System.Xml;
@@ -10,27 +11,21 @@ using System.Xml.Serialization;
 
 namespace SoapCore
 {
-	using System.ServiceModel;
-
 	public class MetaBodyWriter : BodyWriter
 	{
 		private const string XMLNS_XS = "http://www.w3.org/2001/XMLSchema";
 		private const string TRANSPORT_SCHEMA = "http://schemas.xmlsoap.org/soap/http";
-
-		private readonly ServiceDescription _service;
 		private readonly string _baseUrl;
+		private readonly HashSet<string> _builtComplexTypes;
+		private readonly HashSet<string> _builtEnumTypes;
+		private readonly Queue<Type> _complexTypeToBuild;
 
 		private readonly Queue<Type> _enumToBuild;
-		private readonly Queue<Type> _complexTypeToBuild;
-		private readonly HashSet<string> _builtEnumTypes;
-		private readonly HashSet<string> _builtComplexTypes;
 
-		private string BindingName => "BasicHttpBinding_" + _service.Contracts.First().Name;
-		private string BindingType => _service.Contracts.First().Name;
-		private string PortName => "BasicHttpBinding_" + _service.Contracts.First().Name;
-		private string TargetNameSpace => _service.Contracts.First().Namespace;
+		private readonly ServiceDescription _service;
 
-		public MetaBodyWriter(ServiceDescription service, string baseUrl) : base(isBuffered: true)
+		public MetaBodyWriter(ServiceDescription service, string baseUrl)
+			: base(true)
 		{
 			_service = service;
 			_baseUrl = baseUrl;
@@ -40,6 +35,11 @@ namespace SoapCore
 			_builtEnumTypes = new HashSet<string>();
 			_builtComplexTypes = new HashSet<string>();
 		}
+
+		private string BindingName => "BasicHttpBinding_" + _service.Contracts.First().Name;
+		private string BindingType => _service.Contracts.First().Name;
+		private string PortName => "BasicHttpBinding_" + _service.Contracts.First().Name;
+		private string TargetNameSpace => _service.Contracts.First().Namespace;
 
 		protected override void OnWriteBodyContents(XmlDictionaryWriter writer)
 		{
@@ -73,8 +73,8 @@ namespace SoapCore
 				{
 					var elementAttribute = parameter.GetCustomAttribute<XmlElementAttribute>();
 					var parameterName = !string.IsNullOrEmpty(elementAttribute?.ElementName)
-						                    ? elementAttribute.ElementName
-						                    : parameter.GetCustomAttribute<MessageParameterAttribute>()?.Name ?? parameter.Name;
+											? elementAttribute.ElementName
+											: parameter.GetCustomAttribute<MessageParameterAttribute>()?.Name ?? parameter.Name;
 					AddSchemaType(writer, parameter.ParameterType, parameterName, @namespace: elementAttribute?.Namespace);
 				}
 
@@ -106,13 +106,16 @@ namespace SoapCore
 
 			while (_complexTypeToBuild.Count > 0)
 			{
-				Type toBuild = _complexTypeToBuild.Dequeue();
+				var toBuild = _complexTypeToBuild.Dequeue();
 				if (!_builtComplexTypes.Contains(toBuild.Name))
 				{
 					writer.WriteStartElement("xs:complexType");
-					if (toBuild.IsArray)
+
+					if (typeof(IEnumerable).IsAssignableFrom(toBuild))
 					{
-						writer.WriteAttributeString("name", "ArrayOf" + toBuild.Name.Replace("[]", string.Empty));
+						var generic = GetGenericArgumentOfEnumerable(toBuild);
+
+						writer.WriteAttributeString("name", "ArrayOf" + generic.Name);
 					}
 					else
 					{
@@ -120,23 +123,10 @@ namespace SoapCore
 					}
 					writer.WriteStartElement("xs:sequence");
 
-					if (toBuild.IsArray)
+					if (typeof(IEnumerable).IsAssignableFrom(toBuild))
 					{
-						var elementType = toBuild.GetElementType();
-						AddSchemaType(writer, elementType, null, true);
-					}
-					else if (typeof(IEnumerable).IsAssignableFrom(toBuild))
-					{
+						var generic = GetGenericArgumentOfEnumerable(toBuild);
 
-						// Recursively look through the base class to find the Generic Type of the Enumerable
-						var baseType = toBuild;
-						var baseTypeInfo = toBuild.GetTypeInfo();
-						while (!baseTypeInfo.IsGenericType && baseTypeInfo.BaseType != null)
-						{
-							baseType = baseTypeInfo.BaseType;
-							baseTypeInfo = baseType.GetTypeInfo();
-						}
-						var generic = baseType.GetTypeInfo().GetGenericArguments().DefaultIfEmpty(typeof(object)).FirstOrDefault();
 						AddSchemaType(writer, generic, null, true);
 					}
 					else
@@ -156,7 +146,7 @@ namespace SoapCore
 
 			while (_enumToBuild.Count > 0)
 			{
-				Type toBuild = _enumToBuild.Dequeue();
+				var toBuild = _enumToBuild.Dequeue();
 				if (!_builtEnumTypes.Contains(toBuild.Name))
 				{
 					writer.WriteStartElement("xs:simpleType");
@@ -222,6 +212,7 @@ namespace SoapCore
 				writer.WriteEndElement(); // wsdl:output
 				writer.WriteEndElement(); // wsdl:operation
 			}
+
 			writer.WriteEndElement(); // wsdl:portType
 		}
 
@@ -290,7 +281,7 @@ namespace SoapCore
 			{
 				writer.WriteAttributeString("targetNamespace", @namespace);
 			}
-			
+
 			if (typeInfo.IsValueType)
 			{
 				string xsTypename;
@@ -360,16 +351,23 @@ namespace SoapCore
 					writer.WriteAttributeString("name", name);
 					writer.WriteAttributeString("type", "xs:base64Binary");
 				}
-				else if (type.IsArray)
-				{
-					if (string.IsNullOrEmpty(name))
-					{
-						name = type.Name;
-					}
-					writer.WriteAttributeString("name", name);
-					writer.WriteAttributeString("type", "tns:ArrayOf" + type.Name.Replace("[]", string.Empty));
+				//else if (type.IsArray)
+				//{
+				//	if (string.IsNullOrEmpty(name))
+				//	{
+				//		name = type.Name;
+				//	}
+				//	writer.WriteAttributeString("name", name);
+				//	writer.WriteAttributeString("type", "tns:ArrayOf" + type.GetElementType().Name);
 
-					_complexTypeToBuild.Enqueue(type);
+				//	_complexTypeToBuild.Enqueue(type);
+				//}
+				else if (typeof(IEnumerable).IsAssignableFrom(type))
+				{
+					var generic = GetGenericArgumentOfEnumerable(type);
+					writer.WriteAttributeString("name", name);
+					writer.WriteAttributeString("type", "tns:ArrayOf" + generic.Name);
+					_complexTypeToBuild.Enqueue(generic.MakeArrayType());
 				}
 				else
 				{
@@ -387,10 +385,30 @@ namespace SoapCore
 			writer.WriteEndElement(); // xs:element
 		}
 
-	    private string ResolveType(Type type)
-	    {
-	        string typeName = type.IsEnum ? type.GetEnumUnderlyingType().Name : type.Name;
-            string resolvedType = null;
+		private static Type GetGenericArgumentOfEnumerable(Type type)
+		{
+			if (type.IsArray)
+			{
+				return type.GetElementType();
+			}
+
+			// Recursively look through the base class to find the Generic Type of the Enumerable
+			var baseType = type;
+			var baseTypeInfo = type.GetTypeInfo();
+			while (!baseTypeInfo.IsGenericType && baseTypeInfo.BaseType != null)
+			{
+				baseType = baseTypeInfo.BaseType;
+				baseTypeInfo = baseType.GetTypeInfo();
+			}
+
+			var generic = baseType.GetTypeInfo().GetGenericArguments().DefaultIfEmpty(typeof(object)).FirstOrDefault();
+			return generic;
+		}
+
+		private string ResolveType(Type type)
+		{
+			var typeName = type.IsEnum ? type.GetEnumUnderlyingType().Name : type.Name;
+			string resolvedType = null;
 
 			switch (typeName)
 			{
@@ -435,14 +453,12 @@ namespace SoapCore
 					break;
 			}
 
-			if (String.IsNullOrEmpty(resolvedType))
+			if (string.IsNullOrEmpty(resolvedType))
 			{
 				throw new ArgumentException($".NET type {typeName} cannot be resolved into XML schema type");
 			}
 
 			return resolvedType;
 		}
-
 	}
-
 }

@@ -9,7 +9,8 @@ namespace SoapCore
 	{
 		private readonly Fault _fault;
 
-		public FaultBodyWriter(Fault fault, bool isBuffered = true) : base(isBuffered)
+		public FaultBodyWriter(Fault fault, bool isBuffered = true)
+			: base(isBuffered)
 		{
 			_fault = fault;
 		}

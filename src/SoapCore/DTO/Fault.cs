@@ -4,6 +4,12 @@ namespace SoapCore
 {
 	public class Fault
 	{
+		public Fault()
+		{
+			Details = string.Empty;
+			FaultCode = "s:Client";
+		}
+
 		[XmlElement(ElementName = "faultcode")]
 		public string FaultCode { get; set; }
 
@@ -12,11 +18,5 @@ namespace SoapCore
 
 		[XmlElement(ElementName = "detail")]
 		public string Details { get; set; }
-
-		public Fault()
-		{
-			Details = string.Empty;
-			FaultCode = "s:Client";
-		}
 	}
 }

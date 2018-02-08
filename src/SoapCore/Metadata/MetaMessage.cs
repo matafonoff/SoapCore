@@ -15,8 +15,14 @@ namespace SoapCore
 			_service = service;
 		}
 
+		public override MessageHeaders Headers => _message.Headers;
+
+		public override MessageProperties Properties => _message.Properties;
+
+		public override MessageVersion Version => _message.Version;
+
 		/// <summary>
-		/// override to replace s:Envelope
+		///     override to replace s:Envelope
 		/// </summary>
 		/// <param name="writer"></param>
 		protected override void OnWriteStartEnvelope(XmlDictionaryWriter writer)
@@ -30,7 +36,7 @@ namespace SoapCore
 		}
 
 		/// <summary>
-		/// override to replace s:Body
+		///     override to replace s:Body
 		/// </summary>
 		/// <param name="writer"></param>
 		protected override void OnWriteStartBody(XmlDictionaryWriter writer)
@@ -41,21 +47,6 @@ namespace SoapCore
 		protected override void OnWriteBodyContents(XmlDictionaryWriter writer)
 		{
 			_message.WriteBodyContents(writer);
-		}
-
-		public override MessageHeaders Headers
-		{
-			get { return _message.Headers; }
-		}
-
-		public override MessageProperties Properties
-		{
-			get { return _message.Properties; }
-		}
-
-		public override MessageVersion Version
-		{
-			get { return _message.Version; }
 		}
 	}
 }

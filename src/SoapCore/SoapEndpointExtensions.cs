@@ -1,5 +1,7 @@
-﻿using System;
+using System;
+using System.ServiceModel;
 using System.ServiceModel.Channels;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -8,22 +10,46 @@ namespace SoapCore
 {
 	public static class SoapEndpointExtensions
 	{
-		public static IApplicationBuilder UseSoapEndpoint<T>(this IApplicationBuilder builder, string path, MessageEncoder encoder, SoapSerializer serializer = SoapSerializer.DataContractSerializer)
+		public static IApplicationBuilder UseSoapEndpoints(this IApplicationBuilder builder, MessageEncoder encoder, SoapSerializer serializer = SoapSerializer.DataContractSerializer)
 		{
-			return builder.UseMiddleware<SoapEndpointMiddleware>(typeof(T), path, encoder, serializer);
+			return builder.UseMiddleware<SoapEndpointMiddleware>(encoder, serializer);
 		}
 
-		public static IApplicationBuilder UseSoapEndpoint<T>(this IApplicationBuilder builder, string path, Binding binding, SoapSerializer serializer = SoapSerializer.DataContractSerializer)
+		public static IApplicationBuilder UseSoapEndpoints(this IApplicationBuilder builder, SoapSerializer serializer = SoapSerializer.DataContractSerializer)
 		{
-			var element = binding.CreateBindingElements().Find<MessageEncodingBindingElement>();
-			var factory = element.CreateMessageEncoderFactory();
-			var encoder = factory.Encoder;
-			return builder.UseSoapEndpoint<T>(path, encoder, serializer);
+			return builder.UseSoapEndpoints((Binding) null, serializer);
+		}
+
+		public static IApplicationBuilder UseSoapEndpoints(this IApplicationBuilder builder, Binding binding, SoapSerializer serializer = SoapSerializer.DataContractSerializer)
+		{
+			if (binding == null)
+			{
+				binding = new BasicHttpBinding();
+			}
+
+			return builder.UseSoapEndpoints(binding.GetMessageEncoder(), serializer);
 		}
 
 		public static IServiceCollection AddSoapExceptionTransformer(this IServiceCollection serviceCollection, Func<Exception, string> transformer)
 		{
 			serviceCollection.TryAddSingleton(new ExceptionTransformer(transformer));
+			return serviceCollection;
+		}
+
+		public static IServiceCollection AddSoapServices(this IServiceCollection serviceCollection, bool singletone = false)
+		{
+			foreach (var service in SoapEndpointMiddleware.SoapServices)
+			{
+				if (singletone)
+				{
+					serviceCollection.TryAddSingleton(service);
+				}
+				else
+				{
+					serviceCollection.TryAddScoped(service);
+				}
+			}
+
 			return serviceCollection;
 		}
 	}
