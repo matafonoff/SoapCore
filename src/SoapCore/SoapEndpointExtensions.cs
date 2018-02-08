@@ -48,11 +48,11 @@ namespace SoapCore
 				var serviceBehavior = service.GetCustomAttribute<ServiceBehaviorAttribute>();
 				if (serviceBehavior != null)
 				{
-					switch (serviceBehavior.Lifetime)
+					switch (serviceBehavior.InstanceContextMode)
 					{
-						case ServiceInstanceLifetime.PerCall:serviceCollection.AddScoped(service);
+						case InstanceContextMode.PerCall:serviceCollection.AddScoped(service);
 							break;
-						case ServiceInstanceLifetime.Singleton: serviceCollection.AddSingleton(service);
+						case InstanceContextMode.Singleton: serviceCollection.AddSingleton(service);
 							break;
 					}
 					serviceCollection.TryAddSingleton(service);

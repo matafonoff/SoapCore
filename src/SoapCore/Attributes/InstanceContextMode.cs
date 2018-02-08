@@ -1,4 +1,4 @@
-﻿namespace SoapCore.Attributes
+namespace SoapCore.Attributes
 {
 	public enum InstanceContextMode
 	{
