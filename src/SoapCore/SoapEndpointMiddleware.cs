@@ -5,8 +5,12 @@ using System.Reflection;
 using System.ServiceModel.Channels;
 using System.Threading.Tasks;
 
+using Bacup.DESS.Abstraction;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using SoapCore.SoapHelpers;
 
@@ -16,7 +20,7 @@ namespace SoapCore
 	{
 		private static readonly Lazy<TypeInfo[]> _soapServices = new Lazy<TypeInfo[]>(() =>
 		                                                                              {
-			                                                                              return Assembly.GetEntryAssembly().GetReferencedAssemblies().Select(Assembly.Load).Concat(new[] {Assembly.GetEntryAssembly()}).SelectMany(x => x.DefinedTypes).Where(x => x.IsClass && !x.IsAbstract && !x.IsSealed).Where(type => type.GetServiceContracts().Any()).ToArray();
+			                                                                              return AssemblyHelper.AssembliesWithinWorkingDir.SelectMany(x => x.DefinedTypes).Where(x => x.IsClass && !x.IsAbstract && !x.IsSealed).Where(type => type.GetServiceContracts().Any()).ToArray();
 		                                                                              });
 
 		private readonly Dictionary<string, ISoapEndpoint> _endpoints;
@@ -51,6 +55,10 @@ namespace SoapCore
 
 		private IEnumerable<ISoapEndpoint> CollectSoapServices(IServiceProvider serviceProvider)
 		{
+			var log = serviceProvider.GetRequiredService<ILogger<SoapEndpointMiddleware>>();
+
+			log.LogInformation("SOAP endpoints:");
+
 			var generic = typeof(SoapEndpoint<>);
 			foreach (var serviceType in SoapServices)
 			{
@@ -60,6 +68,7 @@ namespace SoapCore
 				var serializer = _serializer;
 
 				var endpoint = (ISoapEndpoint) serviceProvider.CreateInstance(serviceEndpointType, encoder, serializer);
+				log.LogInformation($"    {endpoint.EndpointPath}");
 
 				yield return endpoint;
 			}
