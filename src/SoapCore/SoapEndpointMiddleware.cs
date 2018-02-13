@@ -4,9 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.ServiceModel.Channels;
 using System.Threading.Tasks;
-
 using Bacup.DESS.Abstraction;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
 using Microsoft.Extensions.DependencyInjection;

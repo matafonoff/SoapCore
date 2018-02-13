@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\src\Bacup.DESS.Common\Bacup.DESS.Abstraction.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Core\Bacup.DESS.Abstraction\Bacup.DESS.Abstraction.csproj" />
   </ItemGroup>
 
 </Project>
