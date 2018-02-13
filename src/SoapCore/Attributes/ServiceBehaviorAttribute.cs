@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace SoapCore.Attributes
 {
 	[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-	sealed class ServiceBehaviorAttribute : Attribute
+	public sealed class ServiceBehaviorAttribute : Attribute
 	{
 		public InstanceContextMode InstanceContextMode { get; set; } = InstanceContextMode.PerCall;
 	}

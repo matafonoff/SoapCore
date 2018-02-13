@@ -1,15 +1,14 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using SoapCore.Attributes;
-using SoapCore.SoapHelpers;
 
 namespace SoapCore
 {
@@ -43,34 +42,68 @@ namespace SoapCore
 
 		public static IServiceCollection AddSoapServices(this IServiceCollection serviceCollection, bool singletone = false)
 		{
-			foreach (var service in SoapEndpointMiddleware.SoapServices)
+			foreach (var service in SoapEndpointMiddleware.SoapServices.Select(x=>new ServiceDescription(x)))
 			{
-				var serviceBehavior = service.GetCustomAttribute<ServiceBehaviorAttribute>();
+				var serviceBehavior = service.ServiceType.GetCustomAttribute<ServiceBehaviorAttribute>();
+
 				if (serviceBehavior != null)
 				{
-					switch (serviceBehavior.InstanceContextMode)
-					{
-						case InstanceContextMode.PerCall:serviceCollection.AddScoped(service);
-							break;
-						case InstanceContextMode.Singleton: serviceCollection.AddSingleton(service);
-							break;
-					}
-					serviceCollection.TryAddSingleton(service);
+					AddSoapServicesByAttribute(serviceCollection, serviceBehavior, service);
 				}
 				else
 				{
-					if (singletone)
-					{
-						serviceCollection.TryAddSingleton(service);
-					}
-					else
-					{
-						serviceCollection.TryAddScoped(service);
-					}
+					AddSoapServicesByNotation(serviceCollection, singletone, service);
 				}
 			}
 
 			return serviceCollection;
+		}
+
+		private static void AddSoapServicesByNotation(IServiceCollection serviceCollection, bool singletone, ServiceDescription service)
+		{
+			if (singletone)
+			{
+				AddSingletones(serviceCollection, service);
+			}
+			else
+			{
+				AddScoped(serviceCollection, service);
+			}
+		}
+		
+		private static void AddSoapServicesByAttribute(IServiceCollection serviceCollection, ServiceBehaviorAttribute serviceBehavior, ServiceDescription service)
+		{
+			switch (serviceBehavior.InstanceContextMode)
+			{
+				case InstanceContextMode.PerCall:
+					AddSingletones(serviceCollection, service);
+
+
+					break;
+				case InstanceContextMode.Singleton:
+					AddScoped(serviceCollection, service);
+
+
+					break;
+			}
+		}
+
+		private static void AddScoped(IServiceCollection serviceCollection, ServiceDescription service)
+		{
+			serviceCollection.TryAddScoped(service.ServiceType);
+			foreach (var contract in service.Contracts)
+			{
+				serviceCollection.TryAddScoped(contract.ContractType, service.ServiceType);
+			}
+		}
+
+		private static void AddSingletones(IServiceCollection serviceCollection, ServiceDescription service)
+		{
+			serviceCollection.AddSingleton(service.ServiceType);
+			foreach (var contract in service.Contracts)
+			{
+				serviceCollection.AddSingleton(contract.ContractType, service.ServiceType);
+			}
 		}
 	}
 }

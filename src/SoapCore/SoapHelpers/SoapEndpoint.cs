@@ -166,7 +166,7 @@ namespace SoapCore.SoapHelpers
 			try
 			{
 				//Create an instance of the service class
-				var serviceInstance = serviceProvider.GetService(_service.ServiceType);
+				var serviceInstance = serviceProvider.GetRequiredService(_service.ServiceType);
 
 				var headerProperty = _service.ServiceType.GetProperty("MessageHeaders");
 				if (headerProperty != null && headerProperty.PropertyType.IsInstanceOfType(requestMessage.Headers))

@@ -16,11 +16,11 @@ namespace SoapCore
 		private const string XMLNS_XS = "http://www.w3.org/2001/XMLSchema";
 		private const string TRANSPORT_SCHEMA = "http://schemas.xmlsoap.org/soap/http";
 		private readonly string _baseUrl;
-		private readonly HashSet<string> _builtComplexTypes;
-		private readonly HashSet<string> _builtEnumTypes;
-		private readonly Queue<Type> _complexTypeToBuild;
+		private readonly HashSet<string> _builtComplexTypes = new HashSet<string>();
+		private readonly HashSet<string> _builtEnumTypes = new HashSet<string>();
+		private readonly Queue<Type> _complexTypeToBuild = new Queue<Type>();
 
-		private readonly Queue<Type> _enumToBuild;
+		private readonly Queue<Type> _enumToBuild = new Queue<Type>();
 
 		private readonly ServiceDescription _service;
 
@@ -30,16 +30,18 @@ namespace SoapCore
 			_service = service;
 			_baseUrl = baseUrl;
 
-			_enumToBuild = new Queue<Type>();
-			_complexTypeToBuild = new Queue<Type>();
-			_builtEnumTypes = new HashSet<string>();
-			_builtComplexTypes = new HashSet<string>();
+			var contract = _service.Contracts.First();
+
+			BindingName = "BasicHttpBinding_" + contract.Name;
+			BindingType = contract.Name;
+			PortName = "BasicHttpBinding_" + contract.Name;
+			TargetNameSpace = contract.Namespace;
 		}
 
-		private string BindingName => "BasicHttpBinding_" + _service.Contracts.First().Name;
-		private string BindingType => _service.Contracts.First().Name;
-		private string PortName => "BasicHttpBinding_" + _service.Contracts.First().Name;
-		private string TargetNameSpace => _service.Contracts.First().Namespace;
+		private string BindingName { get; }
+		private string BindingType { get; }
+		private string PortName { get; }
+		private string TargetNameSpace { get; }
 
 		protected override void OnWriteBodyContents(XmlDictionaryWriter writer)
 		{
@@ -75,7 +77,7 @@ namespace SoapCore
 					var parameterName = !string.IsNullOrEmpty(elementAttribute?.ElementName)
 											? elementAttribute.ElementName
 											: parameter.GetCustomAttribute<MessageParameterAttribute>()?.Name ?? parameter.Name;
-					AddSchemaType(writer, parameter.ParameterType, parameterName, @namespace: elementAttribute?.Namespace);
+					AddSchemaType(writer, parameter.ParameterType, parameterName, @namespace: elementAttribute?.Namespace, forcedMandatory: !parameter.IsOptional && !parameter.HasDefaultValue);
 				}
 
 				writer.WriteEndElement(); // xs:sequence
@@ -271,7 +273,7 @@ namespace SoapCore
 			writer.WriteEndElement(); // wsdl:port
 		}
 
-		private void AddSchemaType(XmlDictionaryWriter writer, Type type, string name, bool isArray = false, string @namespace = null)
+		private void AddSchemaType(XmlDictionaryWriter writer, Type type, string name, bool isArray = false, string @namespace = null, bool forcedMandatory = false)
 		{
 			var typeInfo = type.GetTypeInfo();
 			writer.WriteStartElement("xs:element");
@@ -305,7 +307,7 @@ namespace SoapCore
 				}
 				if (isArray)
 				{
-					writer.WriteAttributeString("minOccurs", "0");
+					writer.WriteAttributeString("minOccurs", forcedMandatory ? "1" :"0");
 					writer.WriteAttributeString("maxOccurs", "unbounded");
 					writer.WriteAttributeString("nillable", "true");
 				}
@@ -323,7 +325,7 @@ namespace SoapCore
 			}
 			else
 			{
-				writer.WriteAttributeString("minOccurs", "0");
+				writer.WriteAttributeString("minOccurs", forcedMandatory ? "1" : "0");
 				if (isArray)
 				{
 					writer.WriteAttributeString("maxOccurs", "unbounded");
